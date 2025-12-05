@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 import tempfile
 import os
-from clip_service import ClipRAGService
+from services.clip_service import ClipRAGService
 
 router = APIRouter(prefix="/clip", tags=["CLIP Embeddings"])
 

@@ -140,18 +140,17 @@ Coming soon! Deploy to Vercel with:
 RagChatbot-01/
 ├── .python-version       # Python 3.11.9
 ├── main.py              # FastAPI backend
-├── rag_service.py       # RAG logic
+├── services/            # Service logic
+│   ├── rag_service.py
+│   └── clip_service.py
+├── routes/              # API Routes
+│   ├── rag_routes.py
+│   └── clip_routes.py
 ├── requirements.txt     # Python dependencies
 ├── render.yaml          # Render config
-├── .env                 # API keys (gitignored)
-└── frontend/
-    ├── src/
-    │   ├── components/  # UI components
-    │   ├── services/    # API client
-    │   ├── App.jsx
-    │   └── index.css    # Design system
-    ├── vercel.json      # Vercel config
-    └── package.json
+├── .env.template        # API keys template
+└── .env                 # API keys (gitignored)
+
 ```
 
 ## 🔑 Environment Variables
@@ -218,3 +217,7 @@ VITE_API_URL=http://localhost:8000  # Local development
 - All packages pinned to exact versions
 - LangChain 0.2.x (stable) instead of 0.3.x (cutting-edge)
 - See `deployment_issues.md` for full deployment story
+
+## 🙏 Credits
+
+Based on the template by [Hemanth](https://github.com/hemanth090/RagChatbot-01).
