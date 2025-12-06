@@ -10,6 +10,12 @@ router = APIRouter(tags=["RAG"])
 # Initialize RAG service
 rag_service = RAGService()
 
+@router.on_event("startup")
+async def startup_event():
+    """Initialize RAG service on startup"""
+    await rag_service.initialize()
+    print("RAG service initialized successfully")
+
 class ChatRequest(BaseModel):
     query: str
     chat_history: Optional[List[dict]] = []
@@ -20,7 +26,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/upload-crop-data", response_model=dict)
 async def upload_pdf(file: UploadFile = File(...)):
-    """Upload and process PDF file"""
+    """Upload and process PDF file for CITRUS CROP"""
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
     
@@ -31,14 +37,14 @@ async def upload_pdf(file: UploadFile = File(...)):
             temp_file.write(content)
             temp_file_path = temp_file.name
         
-        # Process the PDF
-        num_chunks = await rag_service.process_pdf(temp_file_path, file.filename)
+        # Process the PDF with document_type="citrus"
+        num_chunks = await rag_service.process_pdf(temp_file_path, file.filename, "citrus")
         
         # Clean up temporary file
         os.unlink(temp_file_path)
         
         return {
-            "message": f"PDF processed successfully. Added {num_chunks} chunks to knowledge base.",
+            "message": f"Citrus crop PDF processed successfully. Added {num_chunks} chunks to knowledge base.",
             "filename": file.filename,
             "chunks": num_chunks
         }
@@ -48,9 +54,9 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @router.post("/ask-consultant", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Chat with the RAG system"""
+    """Chat with the RAG system about CITRUS CROP"""
     try:
-        response, sources = await rag_service.query(request.query, request.chat_history)
+        response, sources = await rag_service.query(request.query, "citrus", request.chat_history)
         return ChatResponse(response=response, sources=sources)
     
     except Exception as e:
@@ -69,11 +75,8 @@ async def upload_government_schemes(file: UploadFile = File(...)):
             temp_file.write(content)
             temp_file_path = temp_file.name
         
-        # Process the PDF
-        # Assuming we use the same rag_service for now, or should we use a different index/namespace?
-        # The user didn't specify, so I'll use the same service but maybe we should note it.
-        # For now, I'll just use rag_service.process_pdf
-        num_chunks = await rag_service.process_pdf(temp_file_path, file.filename)
+        # Process the PDF with document_type="schemes"
+        num_chunks = await rag_service.process_pdf(temp_file_path, file.filename, "schemes")
         
         # Clean up temporary file
         os.unlink(temp_file_path)
@@ -91,18 +94,23 @@ async def upload_government_schemes(file: UploadFile = File(...)):
 async def query_government_schemes(request: ChatRequest):
     """Query government schemes"""
     try:
-        # Reuse the same query method for now
-        response, sources = await rag_service.query(request.query, request.chat_history)
+        response, sources = await rag_service.query(request.query, "schemes", request.chat_history)
         return ChatResponse(response=response, sources=sources)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
 
 @router.delete("/clear-knowledge-base")
-async def clear_knowledge_base():
-    """Clear all documents from the knowledge base"""
+async def clear_knowledge_base(document_type: Optional[str] = None):
+    """
+    Clear documents from the knowledge base
+    document_type: 'citrus', 'schemes', or None (clears both)
+    """
     try:
-        await rag_service.clear_knowledge_base()
-        return {"message": "Knowledge base cleared successfully"}
+        await rag_service.clear_knowledge_base(document_type)
+        if document_type:
+            return {"message": f"Knowledge base cleared successfully for {document_type}"}
+        else:
+            return {"message": "All knowledge bases cleared successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clearing knowledge base: {str(e)}")
