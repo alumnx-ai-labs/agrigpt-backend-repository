@@ -19,6 +19,15 @@ app = FastAPI(title="RAG Chatbot API", version="1.0.0")
 services_ready = False
 initialization_error = None
 
+# Enable CORS for React frontend - MUST be before routes
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Mount static files for serving images
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(static_dir):
@@ -29,14 +38,6 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 app.include_router(rag_router)
 # app.include_router(clip_ingest_router)
 
-# Enable CORS for React frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 async def initialize_services_background():
