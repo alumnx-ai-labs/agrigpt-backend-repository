@@ -53,6 +53,7 @@ else:
 
 
 
+
 async def initialize_services_background():
     """Initialize services in background after server starts"""
     global services_ready, initialization_error
