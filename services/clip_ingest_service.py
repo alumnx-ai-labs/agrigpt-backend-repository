@@ -53,7 +53,7 @@ class ClipIngestService:
         self.initialized = False
         
     async def initialize(self):
-        """Initialize all components"""
+        """Initialize all components (CLIP loads lazily on first use)"""
         print("Initializing CLIP Ingest Service...")
         
         try:
@@ -67,10 +67,9 @@ class ClipIngestService:
             )
             print("Text embeddings initialized (Google text-embedding-004)")
             
-            # Initialize CLIP model for image embeddings
-            print("Loading CLIP model (this may take a moment)...")
-            self.clip_model = SentenceTransformer("clip-ViT-B-32")
-            print("CLIP model initialized (clip-ViT-B-32, 512 dimensions)")
+            # CLIP model will be lazy-loaded on first use to speed up server startup
+            self.clip_model = None  # Lazy loaded
+            print("CLIP model will be loaded on first image request (lazy loading)")
             
             # Initialize LLM for generating answers
             self.llm = ChatGoogleGenerativeAI(
@@ -78,7 +77,7 @@ class ClipIngestService:
                 google_api_key=os.getenv("GOOGLE_API_KEY"),
                 temperature=0.3
             )
-            print("LLM initialized (gemini-2.0-flash)")
+            print("LLM initialized (gemini-2.5-flash)")
             
             # Initialize Pinecone
             self.pinecone_client = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
@@ -107,6 +106,13 @@ class ClipIngestService:
         except Exception as e:
             print(f"Error initializing CLIP Ingest Service: {str(e)}")
             raise e
+    
+    def _ensure_clip_loaded(self):
+        """Lazy load CLIP model on first use"""
+        if self.clip_model is None:
+            print("Loading CLIP model (first use, this may take a moment)...")
+            self.clip_model = SentenceTransformer("clip-ViT-B-32")
+            print("CLIP model loaded (clip-ViT-B-32, 512 dimensions)")
     
     def _ensure_index_exists(self, index_name: str, dimension: int):
         """Ensure Pinecone index exists, create if not"""
@@ -188,6 +194,9 @@ class ClipIngestService:
     
     def embed_image(self, image_bytes: bytes) -> List[float]:
         """Embed image using CLIP model"""
+        # Lazy load CLIP model on first use
+        self._ensure_clip_loaded()
+        
         # Load image from bytes
         img = Image.open(io.BytesIO(image_bytes))
         
@@ -310,6 +319,9 @@ class ClipIngestService:
             raise Exception("CLIP Ingest Service not initialized")
         
         try:
+            # Lazy load CLIP model on first use
+            self._ensure_clip_loaded()
+            
             # Embed the query text using CLIP
             query_embedding = self.clip_model.encode(query).tolist()
             
@@ -353,6 +365,9 @@ class ClipIngestService:
             raise Exception("CLIP Ingest Service not initialized")
         
         try:
+            # Lazy load CLIP model on first use
+            self._ensure_clip_loaded()
+            
             # 1. Load and embed the uploaded image with CLIP
             img = Image.open(io.BytesIO(image_bytes))
             if img.mode != "RGB":
@@ -456,6 +471,9 @@ Be confident in your diagnosis. Use the page context to determine the correct di
             raise Exception("CLIP Ingest Service not initialized")
         
         try:
+            # Lazy load CLIP model on first use
+            self._ensure_clip_loaded()
+            
             # Load and embed the uploaded image with CLIP
             img = Image.open(io.BytesIO(image_bytes))
             if img.mode != "RGB":
@@ -505,6 +523,9 @@ Be confident in your diagnosis. Use the page context to determine the correct di
             raise Exception("CLIP Ingest Service not initialized")
         
         try:
+            # Lazy load CLIP model on first use
+            self._ensure_clip_loaded()
+            
             # Embed the query text using CLIP (same model used for images)
             query_embedding = self.clip_model.encode(query).tolist()
             
