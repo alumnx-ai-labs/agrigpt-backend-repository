@@ -1,6 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union
 import tempfile
 import os
 from services.clip_ingest_service import clip_ingest_service
@@ -30,10 +30,45 @@ class ImageResult(BaseModel):
     image_index: int
 
 
+class TextResult(BaseModel):
+    score: float
+    source: str
+    chunk: int
+    total_chunks: int
+
+
+class UnifiedResult(BaseModel):
+    score: float
+    type: str  # "text" or "image"
+    source: str
+    # Image-specific fields (optional)
+    image_url: Optional[str] = None
+    page: Optional[int] = None
+    image_index: Optional[int] = None
+    page_text: Optional[str] = None
+    # Text-specific fields (optional)
+    chunk: Optional[int] = None
+    total_chunks: Optional[int] = None
+
+
 class ImageQueryResponse(BaseModel):
     query: str
     results: List[ImageResult]
     count: int
+
+
+class TextQueryResponse(BaseModel):
+    query: str
+    results: List[TextResult]
+    count: int
+
+
+class UnifiedQueryResponse(BaseModel):
+    query: str
+    results: List[UnifiedResult]
+    count: int
+    images_count: int
+    texts_count: int
 
 
 @router.post("/clip-ingest-data", response_model=IngestResponse)
@@ -41,10 +76,10 @@ async def ingest_pdf_with_clip(file: UploadFile = File(...)):
     """
     Ingest PDF with CLIP processing:
     1. Extract text and images separately
-    2. Embed text with Google text-embedding-004
-    3. Embed images with CLIP
-    4. Store images in Cloudflare R2
-    5. Store all embeddings in Pinecone with image URLs as metadata
+    2. Embed BOTH text and images with CLIP (512 dimensions)
+    3. Store images locally
+    4. Store all embeddings in single Pinecone CLIP index
+    5. Use type metadata to differentiate: type="text" or type="image"
     """
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -63,7 +98,7 @@ async def ingest_pdf_with_clip(file: UploadFile = File(...)):
         os.unlink(temp_file_path)
         
         return IngestResponse(
-            message=f"PDF processed successfully. {results['text_chunks']} text chunks, {results['images_stored']} images stored.",
+            message=f"PDF processed successfully. {results['text_chunks']} text chunks, {results['images_stored']} images stored (all with CLIP embeddings).",
             filename=results["filename"],
             text_chunks=results["text_chunks"],
             images_processed=results["images_processed"],
@@ -75,13 +110,73 @@ async def ingest_pdf_with_clip(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 
+@router.post("/clip-unified-query", response_model=UnifiedQueryResponse)
+async def unified_query(
+    query: str = Query(..., description="Search query"),
+    top_k: int = Query(10, description="Number of results to return"),
+    filter_type: Optional[str] = Query(None, description="Filter by type: 'text', 'image', or None for both")
+):
+    """
+    NEW UNIFIED QUERY: Search for similar content (text, images, or both)
+    
+    Uses CLIP embeddings to find semantically similar content regardless of type.
+    This enables powerful cross-modal search:
+    - Text query → finds both similar text AND related images
+    - Can filter to only text or only images if needed
+    
+    Examples:
+    - "citrus leaf disease" → returns disease text descriptions + disease images
+    - "treatment methods" → returns treatment text + treatment diagrams
+    """
+    if filter_type and filter_type not in ["text", "image"]:
+        raise HTTPException(status_code=400, detail="filter_type must be 'text', 'image', or None")
+    
+    try:
+        results = await clip_ingest_service.query_unified(query, top_k, filter_type)
+        
+        # Count by type
+        images_count = sum(1 for r in results if r["type"] == "image")
+        texts_count = sum(1 for r in results if r["type"] == "text")
+        
+        return UnifiedQueryResponse(
+            query=query,
+            results=[UnifiedResult(**r) for r in results],
+            count=len(results),
+            images_count=images_count,
+            texts_count=texts_count
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in unified query: {str(e)}")
+
+
+@router.post("/clip-query-texts", response_model=TextQueryResponse)
+async def query_texts(request: ImageQueryRequest):
+    """
+    Query CLIP index for similar TEXT chunks based on text query
+    
+    Uses CLIP text embeddings for semantic text-to-text search.
+    """
+    try:
+        texts = await clip_ingest_service.query_texts(request.query, request.top_k)
+        
+        return TextQueryResponse(
+            query=request.query,
+            results=[TextResult(**txt) for txt in texts],
+            count=len(texts)
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error querying texts: {str(e)}")
+
+
+# EXISTING ENDPOINTS (kept for backward compatibility)
+
 @router.post("/clip-query-data", response_model=ImageQueryResponse)
 async def query_clip_images(request: ImageQueryRequest):
     """
-    Query CLIP index for relevant images based on text:
-    1. Converts text query to CLIP embedding
-    2. Searches Pinecone CLIP index for similar image embeddings
-    3. Returns matching images with R2 URLs
+    Query CLIP index for relevant images based on text
+    (Backward compatible - uses unified query with image filter)
     """
     try:
         images = await clip_ingest_service.query_images(request.query, request.top_k)
@@ -111,9 +206,10 @@ async def ask_with_image(
     """
     Answer questions about a crop image:
     1. Upload a crop image
-    2. CLIP finds similar disease images in the database
-    3. Retrieves related text context
-    4. LLM generates an expert answer
+    2. CLIP finds similar content (BOTH images AND text) in database
+    3. LLM generates expert answer using matched content
+    
+    NOW ENHANCED: Searches both images and text in same CLIP index!
     """
     # Validate file type by extension
     allowed_extensions = [".jpg", ".jpeg", ".png", ".webp"]
@@ -140,12 +236,8 @@ async def ask_with_image(
 @router.post("/hybrid-image-query", response_model=ImageQueryResponse)
 async def hybrid_image_query(request: ImageQueryRequest):
     """
-    Hybrid text-to-image query:
-    1. Converts text query to CLIP embedding
-    2. Searches Pinecone CLIP index for matching images
-    3. Returns images with URLs and metadata
-    
-    Used for queries like "show me images of citrus canker"
+    Hybrid text-to-image query
+    (Same as clip-query-data - kept for backward compatibility)
     """
     try:
         images = await clip_ingest_service.hybrid_query_images(request.query, request.top_k)
@@ -194,4 +286,3 @@ async def query_by_image(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error in image search: {str(e)}")
-
