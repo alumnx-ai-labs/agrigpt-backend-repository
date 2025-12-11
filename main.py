@@ -23,7 +23,13 @@ except Exception as e:
     clip_ingest_service = None
 
 
-app = FastAPI(title="RAG Chatbot API", version="1.0.0")
+app = FastAPI(
+    title="RAG Chatbot API",
+    version="1.0.0",
+    root_path="/api/agrigpt",  # ADD THIS LINE
+    docs_url="/docs",
+    openapi_url="/openapi.json"
+)
 
 # Readiness flag - services are not ready until initialization completes
 services_ready = False

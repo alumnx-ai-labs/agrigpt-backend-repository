@@ -1,10 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, UploadFile, File, HTTPException, Query
+from pydantic import BaseModel, RootModel
 from typing import List, Optional
 import tempfile
 import os
 from services.rag_service import RAGService
 from services.user_service import user_service
+from services.chat_service import chat_service
 
 router = APIRouter(tags=["RAG"])
 
@@ -26,6 +27,32 @@ class UserEnsureRequest(BaseModel):
 
 class UserEnsureResponse(BaseModel):
     userType: str
+
+
+class ChatMessage(BaseModel):
+    messageSource: str
+    message: str
+
+
+class ChatThread(BaseModel):
+    chatId: str
+    messages: List[ChatMessage]
+
+
+class ChatListResponse(RootModel[List[ChatThread]]):
+    pass
+
+
+class ChatPostRequest(BaseModel):
+    email: str
+    messageSource: str
+    message: str
+    chatId: Optional[str] = None  # If provided, append to existing chat; if None, create new
+
+
+class ChatPostResponse(BaseModel):
+    chatId: str
+    status: str
 
 @router.post("/upload-crop-data", response_model=dict)
 async def upload_pdf(file: UploadFile = File(...)):
@@ -132,3 +159,41 @@ async def ensure_user(request: UserEnsureRequest):
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error ensuring user: {str(e)}")
+
+
+@router.get("/chats", response_model=ChatListResponse)
+async def list_chats_get(email: str = Query(..., description="Email address of the user")):
+    """
+    Fetch list of chats for a given user email.
+    """
+    try:
+        chats = await chat_service.get_chats_by_email(email)
+        return ChatListResponse(chats)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching chats: {str(e)}")
+
+
+@router.post("/chats", response_model=ChatPostResponse)
+async def post_chat(request: ChatPostRequest):
+    """
+    Create a new chat or append message to existing chat.
+    - If chatId is provided: append message to that chat
+    - If chatId is None: create new chat with this message and return the new chatId
+    """
+    try:
+        if request.chatId:
+            # Append to existing chat
+            chat_id = await chat_service.append_message(
+                request.chatId, request.messageSource, request.message, request.email
+            )
+        else:
+            # Create new chat with first message
+            initial = {"messageSource": request.messageSource, "message": request.message}
+            chat_id = await chat_service.create_chat(request.email, initial)
+        return ChatPostResponse(chatId=chat_id, status="ok")
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving chat: {str(e)}")
