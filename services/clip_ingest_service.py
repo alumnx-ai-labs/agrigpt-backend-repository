@@ -107,6 +107,13 @@ class ClipIngestService:
             
             self.initialized = True
             print("CLIP Ingest Service initialized successfully (CLIP-only mode)!")
+
+                # ADD THIS: Pre-load CLIP model during initialization
+            print("Pre-loading CLIP model (this may take 2-3 minutes)...")
+            self._ensure_clip_loaded()
+            print("✅ CLIP model loaded and ready")
+    
+            self.initialized = True
             
         except Exception as e:
             print(f"Error initializing CLIP Ingest Service: {str(e)}")
@@ -284,6 +291,7 @@ class ClipIngestService:
         
         # Ensure type="text" in metadata
         metadata["type"] = "text"
+        metadata["content"] = text[:1000]
         
         # Store in Pinecone CLIP index
         self.clip_index.upsert(
@@ -541,17 +549,36 @@ class ClipIngestService:
         """
         if not self.initialized:
             raise Exception("CLIP Ingest Service not initialized")
+        # Add import at top of file (around line 1-20)
+        import asyncio
+
+        # Then in ask_with_image method, REPLACE the entire try block with:
+        try:
+            # Wrap entire operation with timeout
+            async def _process():
+            # Put ALL existing code from the try block here (lines 426-520)
+            # Just indent it one level
         
+            return await asyncio.wait_for(_process(), timeout=120.0)
+    
+        except asyncio.TimeoutError:
+            raise Exception("Image processing timed out after 2 minutes. Please try again.")
+        except Exception as e:
+            raise Exception(f"Error processing image query: {str(e)}")
+
         try:
             # Lazy load CLIP model on first use
             self._ensure_clip_loaded()
+            print("🖼️ Step 1: CLIP model loaded, processing image...")
             
             # 1. Load and embed the uploaded image with CLIP
             img = Image.open(io.BytesIO(image_bytes))
+            print("🧠 Step 2: Generating CLIP embedding for uploaded image...")
             if img.mode != "RGB":
                 img = img.convert("RGB")
             
             image_embedding = self.embed_image(image_bytes)
+            print("🔍 Step 3: Searching Pinecone for similar content...")
             
             # 2. Search CLIP index for similar content (both images and text)
             # This is the power of CLIP: image embedding can match both images AND text!
@@ -560,7 +587,7 @@ class ClipIngestService:
                 top_k=top_k * 2,  # Get more results to ensure we have both types
                 include_metadata=True
             )
-            
+            print(f"📊 Step 4: Found {len(clip_results.matches)} matches. Processing results...")
             # 3. Separate results by type
             matched_images = []
             matched_texts = []
@@ -578,6 +605,7 @@ class ClipIngestService:
                     matched_texts.append({
                         "source": match.metadata.get("source", ""),
                         "chunk": match.metadata.get("chunk", 0),
+                        "content": match.metadata.get("content", ""),
                         "score": match.score
                     })
             
@@ -594,8 +622,12 @@ class ClipIngestService:
             
             # For text matches, we need to fetch the actual content
             # Since we didn't store content in metadata, we can mention the chunks found
+            # LINE 475-476, replace with:
             for txt_match in matched_texts[:3]:
-                text_contexts.append(f"[{txt_match['source']}, chunk {txt_match['chunk']}] (similarity: {txt_match['score']:.0%})")
+                # Fetch the actual content from metadata
+                content = txt_match.get('content', '')
+                if content:
+                    text_contexts.append(f"[{txt_match['source']}, chunk {txt_match['chunk']}]: {content[:300]}")
             
             image_context = "\n".join(image_contexts) if image_contexts else "No similar images found."
             text_context = "\n".join(text_contexts) if text_contexts else "No similar text found."
@@ -625,7 +657,8 @@ Based on the similar images and text found in the knowledge base:
 Be confident in your diagnosis based on the matched content."""
 
             response = self.llm.invoke(prompt)
-            
+            print(f"📊 Step 4: Found {len(clip_results.matches)} matches. Processing results...")
+            print("✅ Step 6: Answer generated successfully!")
             return {
                 "answer": response.content,
                 "matched_sources": list(set([m["source"] for m in matched_images + matched_texts])),
