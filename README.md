@@ -1,5 +1,7 @@
 # AgriGPT Backend RAG
 
+> **🔗 Frontend Repository**: For the frontend UI and setup, see [AgriGPT Frontend](https://github.com/alumnx-ai-labs/agrigpt-frontend)
+
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
@@ -53,72 +55,57 @@ Premium Notion-inspired UI with:
 - Cloudflare R2 (Storage)
 - LangSmith (Observability)
 
-## ⚡ Quick Start (Local Development)
+## ⚡ Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- Python 3.11
-- API keys: Google AI (Gemini), Pinecone, LangSmith (optional)
+- **Python 3.11.x** (required - not 3.12 or 3.13)
+- **Git** for version control
+- **API keys**: Google AI (Gemini), Pinecone
 
-### Setup
+### Installation Steps
 
-1. **Fork and clone the repository**
+1. **Clone the Repository**
 
-```bash
-# Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/agrigpt-backend-rag.git
-cd agrigpt-backend-rag
+   ```bash
+   git clone https://github.com/alumnx-ai-labs/agrigpt-backend-rag.git
+   cd agrigpt-backend-rag
+   ```
 
-# Add upstream remote to sync with original repo
-git remote add upstream https://github.com/alumnx-ai-labs/agrigpt-backend-rag.git
-```
+2. **Create Virtual Environment**
 
-2. **Backend Setup**
+   ```bash
+   python3.11 -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   # or
+   venv\Scripts\activate     # Windows
+   ```
 
-```bash
-# Install Python dependencies
-pip install -r requirements.txt
+3. **Install Dependencies**
 
-# Create .env file with your API keys
-cat > .env << EOF
-GOOGLE_API_KEY=your_google_api_key
-PINECONE_API_KEY=your_pinecone_api_key
-PINECONE_INDEX_NAME=agrigpt-backend-rag-index
-PINECONE_CLOUD=aws
-PINECONE_REGION=us-east-1
-LANGSMITH_API_KEY=your_langsmith_key
-LANGSMITH_TRACING=true
-LANGSMITH_PROJECT=rag-chatbot
-EOF
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. **Frontend Setup**
+4. **Configure Environment**
 
-```bash
-cd frontend
-npm install
+   ```bash
+   cp .env.template .env
+   # Edit .env with your API keys
+   ```
 
-# Create .env for frontend
-echo "VITE_API_URL=http://localhost:8000" > .env
-```
+5. **Run the Server**
 
-4. **Run Locally**
+   ```bash
+   uvicorn main:app --reload
+   ```
 
-Terminal 1 - Backend:
+6. **Access the API**
 
-```bash
-uvicorn main:app --reload
-```
+   - API: http://localhost:8000
+   - Docs: http://localhost:8000/docs
 
-Terminal 2 - Frontend:
-
-```bash
-cd frontend
-npm run dev
-```
-
-Visit: http://localhost:5173
+> **📖 Detailed Installation Guide**: For comprehensive installation instructions including platform-specific setup (Linux, Windows, macOS), API key acquisition, Pinecone index setup, troubleshooting, and more, see [INSTALLATION.md](docs/INSTALLATION.md)
 
 ## 🚀 Deployment
 

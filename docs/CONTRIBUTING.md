@@ -1,5 +1,7 @@
 # Contributing to AgriGPT Backend RAG
 
+> **🔗 Frontend Repository**: For frontend contributions, see [AgriGPT Frontend Contributing Guide](https://github.com/alumnx-ai-labs/agrigpt-frontend/blob/main/docs/CONTRIBUTING.md)
+
 Thank you for your interest in contributing to AgriGPT Backend RAG! This document provides guidelines and instructions for contributing to this open-source project.
 
 ## 📋 Table of Contents
@@ -206,6 +208,8 @@ curl http://localhost:8000/health
 #   "clip_import_error": null
 # }
 ```
+
+> **📖 Detailed Setup Instructions**: For comprehensive installation instructions including platform-specific setup, API key acquisition, Pinecone index setup, troubleshooting, and more, see [INSTALLATION.md](./INSTALLATION.md)
 
 ---
 
