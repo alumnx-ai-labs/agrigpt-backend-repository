@@ -26,6 +26,7 @@ A modern RAG (Retrieval-Augmented Generation) chatbot backend built with FastAPI
 - 🗑️ **Knowledge Management**: Clear the knowledge base anytime
 - ☁️ **Cloud Storage**: Cloudflare R2 integration for scalable file storage
 - 🎨 **Premium UI**: Notion-inspired design with cream color palette
+- 🤖 **Smart Routing (LangGraph)**: Intelligent orchestration of queries using a dedicated Farm Manager Service that routes between Crop and Scheme agents.
 
 ## 🎨 Design
 
@@ -144,10 +145,16 @@ agrigpt-backend-rag/
 ├── main.py              # FastAPI backend
 ├── services/            # Service logic
 │   ├── rag_service.py
-│   └── clip_service.py
+│   ├── clip_service.py
+│   └── farm_manager/    # Farm Manager Service (LangGraph)
+│       ├── state.py
+│       ├── nodes.py
+│       ├── router.py
+│       └── workflow.py
 ├── routes/              # API Routes
 │   ├── rag_routes.py
-│   └── clip_routes.py
+│   ├── clip_routes.py
+│   └── intelligent_routes.py # Farm Manager API
 ├── requirements.txt     # Python dependencies
 ├── render.yaml          # Render config
 ├── .env.template        # API keys template
@@ -182,6 +189,7 @@ VITE_API_URL=http://localhost:8000  # Local development
 - `POST /upload` - Upload PDF document
 - `POST /chat` - Send message and get AI response
 - `POST /clear` - Clear knowledge base
+- `POST /process-farmer-query` - Intelligent Farm Manager endpoint (LangGraph)
 - `GET /health` - Health check
 - `GET /docs` - Interactive API documentation (Swagger)
 
