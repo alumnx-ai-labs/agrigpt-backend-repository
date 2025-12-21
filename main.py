@@ -10,6 +10,7 @@ load_dotenv()
 
 # Import Routers and Services
 from routes.rag_routes import router as rag_router, rag_service
+from routes.intelligent_routes import router as intelligent_router
 
 # CLIP imports - wrapped in try-except to allow server to start even if CLIP has issues
 clip_import_error = None
@@ -52,6 +53,7 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include Routers
 app.include_router(rag_router)
+app.include_router(intelligent_router, tags=["Farm Manager"])
 if clip_ingest_router is not None:
     app.include_router(clip_ingest_router)
 else:

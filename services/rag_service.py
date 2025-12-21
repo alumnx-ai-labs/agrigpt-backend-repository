@@ -201,6 +201,27 @@ class RAGService:
         except Exception as e:
             raise Exception(f"Error processing PDF: {str(e)}")
     
+    async def add_texts(self, texts: List[str], metadatas: List[Dict[str, Any]], document_type: str) -> List[str]:
+        """Add list of texts directly to vector store"""
+        try:
+            # Determine which vector store to use
+            vectorstore = self.vectorstore_citrus if document_type == "citrus" else self.vectorstore_schemes
+            
+            # Create LangChain documents
+            docs = []
+            for i, text in enumerate(texts):
+                doc = Document(
+                    page_content=text,
+                    metadata=metadatas[i] if i < len(metadatas) else {}
+                )
+                docs.append(doc)
+            
+            # Add to vectorstore
+            ids = vectorstore.add_documents(docs)
+            return ids
+        except Exception as e:
+            raise Exception(f"Error adding texts: {str(e)}")
+    
     @traceable(run_type="retriever")
     def retrieve_documents(self, query: str, document_type: str) -> List[Dict[str, Any]]:
         """Retrieve documents relevant to the query from the appropriate namespace"""
