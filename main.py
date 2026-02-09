@@ -12,15 +12,15 @@ load_dotenv()
 from routes.rag_routes import router as rag_router, rag_service
 
 # CLIP imports - wrapped in try-except to allow server to start even if CLIP has issues
-clip_import_error = None
-try:
-    from routes.clip_ingest_routes import router as clip_ingest_router
-    from services.clip_ingest_service import clip_ingest_service
-except Exception as e:
-    clip_import_error = str(e)
-    print(f"⚠️ WARNING: Failed to import CLIP modules: {e}")
-    clip_ingest_router = None
-    clip_ingest_service = None
+#clip_import_error = None
+#try:
+#   from routes.clip_ingest_routes import router as clip_ingest_router
+#    from services.clip_ingest_service import clip_ingest_service
+#except Exception as e:
+#    clip_import_error = str(e)
+#    print(f"⚠️ WARNING: Failed to import CLIP modules: {e}")
+#    clip_ingest_router = None
+#    clip_ingest_service = None
 
 
 app = FastAPI(
@@ -51,11 +51,11 @@ if not os.path.exists(static_dir):
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include Routers
-app.include_router(rag_router)
-if clip_ingest_router is not None:
-    app.include_router(clip_ingest_router)
-else:
-    print("⚠️ CLIP router not loaded - multimodal features disabled")
+#app.include_router(rag_router)
+#if clip_ingest_router is not None:
+#    app.include_router(clip_ingest_router)
+#else:
+#    print("⚠️ CLIP router not loaded - multimodal features disabled")
 
 
 
@@ -63,18 +63,18 @@ else:
 async def initialize_services_background():
     """Initialize services in background after server starts"""
     global services_ready, initialization_error
-    try:
-        print("🚀 Starting background initialization...")
-        await rag_service.initialize()
-        if clip_ingest_service is not None:
-            await clip_ingest_service.initialize()
-        else:
-            print("⚠️ Skipping CLIP service initialization (import failed)")
-        services_ready = True
-        print("✅✅✅ ALL SERVICES READY ✅✅✅")
-    except Exception as e:
-        initialization_error = str(e)
-        print(f"❌ Background initialization failed: {e}")
+#   try:
+#        print("🚀 Starting background initialization...")
+#       await rag_service.initialize()
+#       if clip_ingest_service is not None:
+#            await clip_ingest_service.initialize()
+#        else:
+#            print("⚠️ Skipping CLIP service initialization (import failed)")
+#       services_ready = True
+#        print("✅✅✅ ALL SERVICES READY ✅✅✅")
+#    except Exception as e:
+#        initialization_error = str(e)
+#        print(f"❌ Background initialization failed: {e}")
 
 
 @app.on_event("startup")
@@ -92,8 +92,8 @@ async def health_check():
         "status": "healthy",
         "service": "RAG Chatbot API",
         "services_ready": services_ready,
-        "clip_available": clip_ingest_router is not None,
-        "clip_import_error": clip_import_error
+#        "clip_available": clip_ingest_router is not None,
+#        "clip_import_error": clip_import_error
     }
 
 
